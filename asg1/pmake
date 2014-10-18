@@ -86,8 +86,8 @@ my %targets;
 my %options;
 getopts ('dnf:', \%options);
 
-# Store the first target.
-my $trgt1;
+# Record target hierarchy.
+my @target_array;
 
 # Populates the macro table.
 sub macro_hash {
@@ -126,28 +126,55 @@ sub mtime {
 
 # Execute target commands.
 sub exe_cmds {
+  my ($trgt, $t_name) = @_;
+  $trgt =~ s/%/$t_name/;
+  my $dep1 = ${$targets{$_[0]}{'deps'}}[0];
+  $dep1 =~ s/%/$t_name/ if defined $dep1;
   for (@{$targets{$_[0]}{'cmds'}}) {
 	my $exit_ignore = 0;
     if ($_ =~ s/^-\s//) {
 	  $exit_ignore = 1;
 	}
+	$_ =~ s/\$</$dep1/g;
+	$_ =~ s/\$@/$trgt/g;
     print "$_\n";
     system ($_) if not defined $options{'n'};
 	my $term_signal = $? & 0x7F;
     my $core_dumped = $? & 0x80;
 	my $exit_status = ($? >> 8) & 0xFF;
 	if ($exit_status != 0) {
-	  printf "%s: [%s] Error %d%s\n", $0, $_[0], 
+	  printf "%s: %s[%s] Error %d%s\n", $0, 
+	  $exit_ignore ? '' : '*** ', $trgt, 
 	  $exit_status, $exit_ignore ? ' (ignored)' : '';
+	  if (!$exit_ignore) {
+	    exit 2;
+	  }
 	}
-	# print "sig: $term_signal, core: $core_dumped, exit: $exit_status\n";
   }
 }
+
+# Seek wild-card targets.
+sub pre_build {
+  my $trgt = $_[0];
+  my @trgt_def = split /\./;
+  my $t_name = $trgt_def[0];
+  my $trgt_ext = $trgt_def[1];
+  for (@target_array) {
+    if ($_ eq $trgt) {
+	  target_build ($_, $t_name);
+	}
+	if (defined $trgt_ext && $_ eq "%.$trgt_ext") {
+	  target_build ("%.$trgt_ext", $t_name);
+	}
+  }
+}
+
 
 # Make a target.
 sub target_build {
   my $exe = 0;
-  my $trgt = $_[0];
+  my ($trgt, $t_name) = @_;
+  $trgt =~ s/%/$t_name/;
   my $t_mtime = mtime ($trgt);
   if (not defined $t_mtime) {
     $exe = 1;
@@ -156,11 +183,11 @@ sub target_build {
 	  print "$trgt: file does not exist, rebuild $trgt\n";
 	}
   }
-  for (@{$targets{$trgt}{'deps'}}) {
+  for (@{$targets{$_[0]}{'deps'}}) {
     my $dep = $_;
     my $d_mtime = mtime ($dep);
     if (not defined $d_mtime) {
-      target_build ($dep);
+      pre_build ($dep);
       next;
     }
     if ($t_mtime != 0 && $t_mtime < $d_mtime) {
@@ -171,7 +198,7 @@ sub target_build {
 	  }
     }
   }
-  exe_cmds ($trgt) if $exe == 1;
+  exe_cmds ($_[0], $t_name) if $exe == 1;
 }
 
 # Set the makefile.
@@ -215,10 +242,10 @@ while (<$mfile>) {
     $trgt =~ s/\$\{([^}]+)\}/$macros{$1}/;
 	if (not defined $targets{$trgt}) {
 	  $targets{$trgt} = $p;
+	  push (@target_array, $trgt);
 	} elsif ($targets{$trgt}{'deps'} !~ /$deps/g) {
 	    $targets{$trgt}{'deps'} .= " $deps";
 	}
-    $trgt1 = $trgt if not defined $trgt1;
   }
 }
 close $mfile;
@@ -227,9 +254,9 @@ close $mfile;
 macro_swap();
 
 # Execute specified targets.
-$ARGV[0] = $trgt1 if not defined $ARGV[0];
+$ARGV[0] = $target_array[0] if not defined $ARGV[0];
 for (@ARGV) {
-  target_build ($_);
+  pre_build ($_);
 }
 
 sub debug_print {
