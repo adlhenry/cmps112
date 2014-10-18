@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # Author: Adam Henry, adlhenry@ucsc.edu
-# $Id: pmake,v 1.5 2014-10-13 18:22:47-07 - - $
+# $Id: pmake,v 1.7 2014-10-18 16:21:12-07 - - $
 use strict;
 use warnings;
 use Getopt::Std;
@@ -95,7 +95,7 @@ sub macro_hash {
     while ($macros{$_} =~ s/\$\{([^}]+)\}/$macros{$1}/) {
     }
     $macros{$_} =~ s/^\s+|\s+$|\s{2,}|#(.*)//g;
-	$macros{$_} =~ s|\$\$|\$|g;
+    $macros{$_} =~ s|\$\$|\$|g;
   }
 }
 
@@ -103,17 +103,17 @@ sub macro_hash {
 sub macro_swap {
   for my $trgt (keys %targets) {
     $_ = $targets{$trgt}{'deps'};
-	my @deps;
-	if (defined) {
-	  while (s/\$\{([^}]+)\}/$macros{$1}/) {
-	  }
-	  @deps = split;
-	}
-	$targets{$trgt}{'deps'} = \@deps;
+    my @deps;
+    if (defined) {
+      while (s/\$\{([^}]+)\}/$macros{$1}/) {
+      }
+      @deps = split;
+    }
+    $targets{$trgt}{'deps'} = \@deps;
     for (@{$targets{$trgt}{'cmds'}}) {
       while ($_ =~ s/\$\{([^}]+)\}/$macros{$1}/) {
       }
-	  $_ =~ s|\$\$|\$|g;
+      $_ =~ s|\$\$|\$|g;
     }
   }
 }
@@ -131,25 +131,26 @@ sub exe_cmds {
   my $dep1 = ${$targets{$_[0]}{'deps'}}[0];
   $dep1 =~ s/%/$t_name/ if defined $dep1;
   for (@{$targets{$_[0]}{'cmds'}}) {
-	my $exit_ignore = 0;
-    if ($_ =~ s/^-\s//) {
-	  $exit_ignore = 1;
-	}
-	$_ =~ s/\$</$dep1/g;
-	$_ =~ s/\$@/$trgt/g;
-    print "$_\n";
-    system ($_) if not defined $options{'n'};
-	my $term_signal = $? & 0x7F;
+    my $cmd_line = $_;
+    my $exit_ignore = 0;
+    if ($cmd_line =~ s/^-\s//) {
+      $exit_ignore = 1;
+    }
+    $cmd_line =~ s/\$</$dep1/g;
+    $cmd_line =~ s/\$@/$trgt/g;
+    print "$cmd_line\n";
+    system ($cmd_line) if not defined $options{'n'};
+    my $term_signal = $? & 0x7F;
     my $core_dumped = $? & 0x80;
-	my $exit_status = ($? >> 8) & 0xFF;
-	if ($exit_status != 0) {
-	  printf "%s: %s[%s] Error %d%s\n", $0, 
-	  $exit_ignore ? '' : '*** ', $trgt, 
-	  $exit_status, $exit_ignore ? ' (ignored)' : '';
-	  if (!$exit_ignore) {
-	    exit 2;
-	  }
-	}
+    my $exit_status = ($? >> 8) & 0xFF;
+    if ($exit_status != 0) {
+      printf "%s: %s[%s] Error %d%s\n", $0, 
+      $exit_ignore ? '' : '*** ', $trgt, 
+      $exit_status, $exit_ignore ? ' (ignored)' : '';
+      if (!$exit_ignore) {
+        exit 2;
+      }
+    }
   }
 }
 
@@ -161,14 +162,13 @@ sub pre_build {
   my $trgt_ext = $trgt_def[1];
   for (@target_array) {
     if ($_ eq $trgt) {
-	  target_build ($_, $t_name);
-	}
-	if (defined $trgt_ext && $_ eq "%.$trgt_ext") {
-	  target_build ("%.$trgt_ext", $t_name);
-	}
+      target_build ($_, $t_name);
+    }
+    if (defined $trgt_ext && $_ eq "%.$trgt_ext") {
+      target_build ("%.$trgt_ext", $t_name);
+    }
   }
 }
-
 
 # Make a target.
 sub target_build {
@@ -179,12 +179,13 @@ sub target_build {
   if (not defined $t_mtime) {
     $exe = 1;
     $t_mtime = 0;
-	if (defined $options{'d'}) {
-	  print "$trgt: file does not exist, rebuild $trgt\n";
-	}
+    if (defined $options{'d'}) {
+      print "$trgt: file does not exist, rebuild $trgt\n";
+    }
   }
   for (@{$targets{$_[0]}{'deps'}}) {
     my $dep = $_;
+    $dep =~ s/%/$t_name/;
     my $d_mtime = mtime ($dep);
     if (not defined $d_mtime) {
       pre_build ($dep);
@@ -192,10 +193,10 @@ sub target_build {
     }
     if ($t_mtime != 0 && $t_mtime < $d_mtime) {
       $exe = 1;
-	  if (defined $options{'d'}) {
-	    print "$trgt: file is obsolete with dependenency $dep, 
-		rebuild $trgt\n";
-	  }
+      if (defined $options{'d'}) {
+        print "$trgt: file is obsolete with dependenency $dep, 
+        rebuild $trgt\n";
+      }
     }
   }
   exe_cmds ($_[0], $t_name) if $exe == 1;
@@ -236,16 +237,16 @@ while (<$mfile>) {
     my @cmds;
     $cmds_ref = \@cmds;
     my @depsdef = split /\s*:\s*/;
-	my $deps = $depsdef[1];
+    my $deps = $depsdef[1];
     my $p = {'deps' => $deps, 'cmds' => $cmds_ref};
-	my $trgt = $1;
+    my $trgt = $1;
     $trgt =~ s/\$\{([^}]+)\}/$macros{$1}/;
-	if (not defined $targets{$trgt}) {
-	  $targets{$trgt} = $p;
-	  push (@target_array, $trgt);
-	} elsif ($targets{$trgt}{'deps'} !~ /$deps/g) {
-	    $targets{$trgt}{'deps'} .= " $deps";
-	}
+    if (not defined $targets{$trgt}) {
+      $targets{$trgt} = $p;
+      push (@target_array, $trgt);
+    } elsif ($targets{$trgt}{'deps'} !~ /$deps/g) {
+        $targets{$trgt}{'deps'} .= " $deps";
+    }
   }
 }
 close $mfile;
@@ -274,4 +275,4 @@ sub debug_print {
     }
 }
 
-# debug_print() if defined $options{'d'};
+#debug_print() if defined $options{'d'};
