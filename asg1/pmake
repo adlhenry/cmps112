@@ -1,13 +1,13 @@
 #!/usr/bin/perl
 # Author: Adam Henry, adlhenry@ucsc.edu
-# $Id: pmake,v 1.7 2014-10-18 16:21:12-07 - - $
+# $Id: pmake,v 1.9 2014-10-19 19:56:00-07 - - $
 use strict;
 use warnings;
 use Getopt::Std;
 
 $0 =~ s/^.\///;
-# my $exit_status = 0;
-# END {exit $exit_status}
+my $exit_status = 0;
+END {exit $exit_status}
 
 # Linux 2.6.32-431.29.2.el6.x86_64 x86_64
 my %strsignal = (
@@ -142,13 +142,15 @@ sub exe_cmds {
     system ($cmd_line) if not defined $options{'n'};
     my $term_signal = $? & 0x7F;
     my $core_dumped = $? & 0x80;
-    my $exit_status = ($? >> 8) & 0xFF;
-    if ($exit_status != 0) {
+    my $exit_stat = ($? >> 8) & 0xFF;
+    if ($exit_stat != 0) {
       printf "%s: %s[%s] Error %d%s\n", $0, 
       $exit_ignore ? '' : '*** ', $trgt, 
-      $exit_status, $exit_ignore ? ' (ignored)' : '';
+      $exit_stat, $exit_ignore ? ' (ignored)' : '';
       if (!$exit_ignore) {
         exit 2;
+      } else {
+        $exit_status = $exit_stat;
       }
     }
   }
@@ -163,9 +165,11 @@ sub pre_build {
   for (@target_array) {
     if ($_ eq $trgt) {
       target_build ($_, $t_name);
+      return;
     }
     if (defined $trgt_ext && $_ eq "%.$trgt_ext") {
       target_build ("%.$trgt_ext", $t_name);
+      return;
     }
   }
 }
@@ -244,8 +248,8 @@ while (<$mfile>) {
     if (not defined $targets{$trgt}) {
       $targets{$trgt} = $p;
       push (@target_array, $trgt);
-    } elsif ($targets{$trgt}{'deps'} !~ /$deps/g) {
-        $targets{$trgt}{'deps'} .= " $deps";
+    } elsif ($targets{$trgt}{'deps'} eq $deps) {
+        $targets{$trgt}{'cmds'} = $cmds_ref;
     }
   }
 }
@@ -275,4 +279,4 @@ sub debug_print {
     }
 }
 
-#debug_print() if defined $options{'d'};
+# debug_print() if defined $options{'d'};
