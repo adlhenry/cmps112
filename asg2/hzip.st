@@ -69,20 +69,6 @@ Object subclass: ZeroArray [
          aBlock value: index value: (self at: index).
       ]
    ]
-   
-   nl := Character nl.
-   print [
-	   self keysAndValuesDo: [:key :value |
-		  (value notNil and: [value > 0]) ifTrue: [
-		     |character|
-			 character := (key asCharacter visible).
-			 character asString size to: 3 do: [:skip| stdout << ' '].
-			 stdout << character << ' '. 
-			 value asString size to: 5 do: [:skip| stdout << ' '].
-			 stdout << value << ' ' << '%s_hcode' << nl.
-		  ]
-	  ]
-  ]
  
 ]
 
@@ -174,7 +160,6 @@ Smalltalk arguments size < 2
 
 "1. Load frequency table."
 freqtable := ZeroArray new: 256.
-
 [
    |infile|
    infile := FileStream open: filenameIn
@@ -192,15 +177,12 @@ freqtable := ZeroArray new: 256.
 
 "2. Load priority queue from frequency table."
 pqueue := SortedCollection new.
-
 freqtable keysAndValuesDo: [:key :value |
   (value notNil and: [value > 0]) ifTrue: [
-		newTree := Tree new: (key asCharacter) count: value 
-		left: nil right: nil.
+		newTree := Leaf new: (key asCharacter) count: value.
 		pqueue add: newTree.
   ]
 ].
-
 opts =~ 'd' ifMatched: [pqueue inspect.].
 
 "3. Unload priority queue into Huffman tree."
@@ -212,10 +194,25 @@ opts =~ 'd' ifMatched: [pqueue inspect.].
 	left: tree right: rtree.
 	pqueue add: newTree.
 ].
-
 opts =~ 'd' ifMatched: [stdout << tree << nl.].
 
 "4. Traverse Huffman tree into encoding array."
+encodings := Array new: 256.
+tree inorder: [:char :encoding |
+   encodings at: char asInteger put: encoding.
+] prefix: ''.
 
 "5. Print out frequency and encoding table."
-opts =~ 't' ifMatched: [freqtable print.].
+opts =~ 't' ifMatched: [
+	freqtable keysAndValuesDo: [:key :value |
+		(value notNil and: [value > 0]) ifTrue: [
+		 |character|
+		 character := (key asCharacter visible).
+		 character asString size to: 3 do: [:skip| stdout << ' '].
+		 stdout << character << ' '. 
+		 value asString size to: 5 do: [:skip| stdout << ' '].
+		 stdout << value << ' '.
+		 stdout << (encodings at: key) << nl.
+		]
+	]
+].
