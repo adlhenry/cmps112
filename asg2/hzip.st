@@ -19,7 +19,7 @@ FileStream extend [
 "Print a character or its ASCII code."
 Character extend [
    isPrint [
-      ^ (Character space <= self) & (self <= $~)
+      ^ ($! <= self) & (self <= $~)
    ]
    visible [
       self isPrint ifTrue: [^ self asString]
@@ -110,6 +110,11 @@ Object subclass: Leaf [
    inorder: visitor prefix: string [
       visitor value: char value: string.
    ]
+   
+   nl := Character nl.
+   postorder [
+      stdout << '0' << self char << nl.
+   ]
 
 ]
 
@@ -141,7 +146,14 @@ Leaf subclass: Tree [
       left inorder: visitor prefix: string, '0'.
       right inorder: visitor prefix: string, '1'.
    ]
-
+   
+   nl := Character nl.
+   postorder [
+      left postorder.
+      right postorder.
+	  stdout << '1' << self char << nl.
+   ]
+   
 ]
 
 "Set program arguments."
@@ -216,3 +228,14 @@ opts =~ 't' ifMatched: [
 		]
 	]
 ].
+
+"Write the Huffman tree into the outfile."
+opts =~ 'c' ifMatched: [
+	tree postorder.
+].
+
+"Compress file."
+
+"Reconstruct Huffman tree from compressed file."
+
+"Decompress file."
