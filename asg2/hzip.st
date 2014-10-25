@@ -7,6 +7,23 @@ nl := Character nl.
 
 "Load the frequency table from a file."
 FileStream extend [
+   bitChar: char [
+   		|bit charVal bitIndex|
+		
+		charVal := char value.
+		(charVal = 0) & (charVal = 256) ifTrue: [
+			bit := charVal bitAt: 8.
+			^ self << bit.
+		].
+		
+		bitIndex := 8.
+		[bitIndex ~= 0] whileTrue: [
+			bit := charVal bitAt: bitIndex.
+			bitIndex := bitIndex - 1.
+			self << bit.
+		].
+   ]
+   
    loadCharFreq: freqtable [
       [self atEnd not] whileTrue: [
          |ordChar|
@@ -14,10 +31,11 @@ FileStream extend [
          freqtable incr: ordChar.
       ]
    ]
+
 ]
 
 "Print a character or its ASCII code."
-Character extend [
+Character extend [ 
    isPrint [
       ^ ($! <= self) & (self <= $~)
    ]
@@ -111,9 +129,9 @@ Object subclass: Leaf [
       visitor value: char value: string.
    ]
    
-   nl := Character nl.
-   postorder [
-      stdout << '0' << self char << nl.
+   writeTreeIn: outfile [
+        outfile << 0.
+		outfile bitChar: self char.
    ]
 
 ]
@@ -147,11 +165,11 @@ Leaf subclass: Tree [
       right inorder: visitor prefix: string, '1'.
    ]
    
-   nl := Character nl.
-   postorder [
-      left postorder.
-      right postorder.
-	  stdout << '1' << self char << nl.
+   writeTreeIn: outfile [
+      left writeTreeIn: outfile.
+      right writeTreeIn: outfile.
+	    outfile << 1.
+		outfile bitChar: self char.
    ]
    
 ]
@@ -231,7 +249,24 @@ opts =~ 't' ifMatched: [
 
 "Write the Huffman tree into the outfile."
 opts =~ 'c' ifMatched: [
-	tree postorder.
+	filenameOut = nil 
+	ifTrue: [tree writeTreeIn: stdout.]
+	ifFalse: [
+		[
+		   |outfile|
+		   outfile := FileStream open: filenameOut
+								mode: FileStream write.
+		   tree writeTreeIn: outfile.
+		   outfile close.
+		] on: SystemExceptions.FileError do: [:signal |
+		   |errno|
+		   errno := File errno.
+		   stdout flush.
+		   stderr << execname << ': ' << filenameOut << ': '
+				  << signal messageText << nl.
+		   stderr flush.
+		].
+	]
 ].
 
 "Compress file."
