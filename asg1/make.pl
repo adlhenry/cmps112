@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # Author: Adam Henry, adlhenry@ucsc.edu
-# $Id: pmake,v 1.9 2014-10-19 19:56:00-07 - - $
+# $Id: make.pl,v 1.9 2014-10-19 19:56:00-07 - - $
 use strict;
 use warnings;
 use Getopt::Std;
