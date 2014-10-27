@@ -7,8 +7,8 @@ nl := Character nl.
 
 "Load the frequency table from a file."
 FileStream extend [
-   bitChar: char [
-   		|bit charVal bitIndex|
+	bitChar: char [
+		|bit charVal bitIndex|
 		
 		charVal := char value.
 		(charVal = 0) & (charVal = 256) ifTrue: [
@@ -22,27 +22,105 @@ FileStream extend [
 			bitIndex := bitIndex - 1.
 			self << bit.
 		].
-   ]
+	]
    
-   loadCharFreq: freqtable [
-      [self atEnd not] whileTrue: [
-         |ordChar|
-         ordChar := self next asInteger.
-         freqtable incr: ordChar.
-      ]
-   ]
+	loadCharFreq: freqtable [
+	  [self atEnd not] whileTrue: [
+		 |ordChar|
+		 ordChar := self next asInteger.
+		 freqtable incr: ordChar.
+	  ]
+	]
 
+   loadTree [
+	 |stack tree|
+	 stack := Stack new: 256.
+      [self atEnd not] whileTrue: [
+         |preBit|
+         preBit := self next asBit.
+         preBit = 0 ifTrue: [
+			|bit bitBuffer bitIndex newLeaf|
+			bitBuffer := 0.
+			bitIndex := 8.
+			[bitIndex ~= 0] whileTrue: [
+				bit := self next asBit.
+				bitBuffer := bitBuffer bitAt: bitIndex put: bit.
+				bitIndex := bitIndex - 1.
+			 ].
+			 newLeaf := Leaf new: (bitBuffer asCharacter) count: 0.
+			 stack push: newLeaf.
+		 ].
+		 preBit = 1 ifTrue: [
+			|ltree rtree newTree|
+			rtree := stack pop.
+			ltree := stack pop.
+			newTree := Tree new: ltree char 
+			count: 0 left: ltree right: rtree.
+			stack push: newTree.
+		 ].
+      ].
+	  ^ tree := stack pop.
+   ]
 ]
 
 "Print a character or its ASCII code."
-Character extend [ 
+Character extend [
+	asBit [
+		^ self value bitAt: 1.
+	]
+	
    isPrint [
       ^ ($! <= self) & (self <= $~)
    ]
+   
    visible [
       self isPrint ifTrue: [^ self asString]
                    ifFalse: [^ self asciiValue printStringRadix: 16]
    ]
+]
+
+"Stack object."
+Object subclass: Stack [
+	|theArray top item|
+
+	Stack class >> new [
+		self shouldNotImplement.
+	]
+
+	Stack class >> new: size [
+		|result|
+		result := super new.
+		result init: size.
+		^ result
+	]
+
+	init: size [
+		top := 0.
+		theArray := Array new: size.
+	]
+
+	size [
+		^ theArray size.
+	]
+	
+	nl := Character nl.
+	pop [
+		top = 0 ifTrue: [ 
+			stderr << 'stack underflow' << nl.
+			^ nil
+		].
+		item := theArray at: top.
+		top := top - 1.
+		^ item
+	]
+
+	push: item [
+		top := top + 1.
+		top > self size ifTrue: [
+			^ stderr << 'stack overflow' << nl.
+		].
+		theArray at: top put: item.
+	]
 ]
 
 "Frequency table array object."
@@ -87,7 +165,6 @@ Object subclass: ZeroArray [
          aBlock value: index value: (self at: index).
       ]
    ]
- 
 ]
 
 "Leaf object."
@@ -128,12 +205,11 @@ Object subclass: Leaf [
    inorder: visitor prefix: string [
       visitor value: char value: string.
    ]
-   
+
    writeTreeIn: outfile [
         outfile << 0.
 		outfile bitChar: self char.
    ]
-
 ]
 
 "Leaf tree object."
@@ -166,12 +242,10 @@ Leaf subclass: Tree [
    ]
    
    writeTreeIn: outfile [
-      left writeTreeIn: outfile.
-      right writeTreeIn: outfile.
+		left writeTreeIn: outfile.
+		right writeTreeIn: outfile.
 	    outfile << 1.
-		outfile bitChar: self char.
    ]
-   
 ]
 
 "Set program arguments."
@@ -209,8 +283,8 @@ freqtable := ZeroArray new: 256.
 pqueue := SortedCollection new.
 freqtable keysAndValuesDo: [:key :value |
   (value notNil and: [value > 0]) ifTrue: [
-		newTree := Leaf new: (key asCharacter) count: value.
-		pqueue add: newTree.
+		newLeaf := Leaf new: (key asCharacter) count: value.
+		pqueue add: newLeaf.
   ]
 ].
 opts =~ 'd' ifMatched: [pqueue inspect.].
@@ -272,7 +346,22 @@ opts =~ 'c' ifMatched: [
 "Compress file."
 
 "Reconstruct Huffman tree from compressed file."
-
-
+opts =~ 'u' ifMatched: [
+	[
+	   |infile|
+	   infile := FileStream open: filenameIn
+							mode: FileStream read.
+	   tree := infile loadTree.
+	   infile close.
+	] on: SystemExceptions.FileError do: [:signal |
+	   |errno|
+	   errno := File errno.
+	   stdout flush.
+	   stderr << execname << ': ' << filenameIn << ': '
+			  << signal messageText << nl.
+	   stderr flush.
+	].
+].
+opts =~ '(k)' ifMatched: [stdout << tree << nl.].
 
 "Decompress file."
