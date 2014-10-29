@@ -7,20 +7,41 @@ nl := Character nl.
 
 "Load the frequency table from a file."
 FileStream extend [
+	|bitNumber bitBuff|
+	
+	clearByte [
+		bitNumber := 8.
+		bitBuff := 0.
+	]
+
+	flushByte [
+		|char|
+		bitNumber = 8 ifFalse: [
+			char := Character value: bitBuff asInteger.
+			self nextPut: char.
+			self clearByte.
+		]
+	]
+
+	writeBit: bit [
+		bitBuff isNil ifTrue: [self clearByte].
+		bitNumber = 0 ifTrue: [self flushByte].
+		bitBuff := bitBuff bitAt: bitNumber put: bit.
+		bitNumber := bitNumber - 1.
+	]
+
 	bitChar: char [
 		|bit charVal bitIndex|
-
 		charVal := char value.
 		(charVal = 0) & (charVal = 256) ifTrue: [
 			bit := charVal bitAt: 8.
-			^ self << bit.
+			^ self writeBit: bit.
 		].
-
 		bitIndex := 8.
 		[bitIndex ~= 0] whileTrue: [
 			bit := charVal bitAt: bitIndex.
 			bitIndex := bitIndex - 1.
-			self << bit.
+			self writeBit: bit.
 		].
 	]
 
@@ -31,19 +52,44 @@ FileStream extend [
 			freqtable incr: ordChar.
 		]
 	]
+	
+	
+	|charV bitt bitNum|
+	clear [
+		bitNum := 0.
+	]
+	
+	newByte [
+		charV := self next.
+		bitNum := 8.
+	]
+	
+	nextBit [
+		bitNum isNil ifTrue: [self clear].
+		bitNum = 0 ifTrue: [self newByte].
+		charV isNil ifTrue: [ ^ nil ].
+		bitt := charV value bitAt: bitNum.
+		bitNum := bitNum - 1.
+		^ bitt.
+	]
 
 	loadTree [
-		|stack tree|
+		|stack tree preBit|
+		preBit := 0.
 		stack := Stack new: 256.
-		[self atEnd not] whileTrue: [
-			|preBit|
-			preBit := self next asBit.
+		[preBit ~= nil] whileTrue: [
+			preBit := self nextBit.
+			self atEnd ifTrue: [
+				preBit = 0 ifTrue: [
+					^ tree := stack pop.
+				].
+			].
 			preBit = 0 ifTrue: [
 				|bit bitBuffer bitIndex newLeaf|
 				bitBuffer := 0.
 				bitIndex := 8.
 				[bitIndex ~= 0] whileTrue: [
-					bit := self next asBit.
+					bit := self nextBit.
 					bitBuffer := bitBuffer bitAt: bitIndex put: bit.
 					bitIndex := bitIndex - 1.
 				].
@@ -65,10 +111,6 @@ FileStream extend [
 
 "Print a character or its ASCII code."
 Character extend [
-	asBit [
-		^ self value bitAt: 1.
-	]
-
 	isPrint [
 		^ ($! <= self) & (self <= $~)
 	]
@@ -207,7 +249,7 @@ Object subclass: Leaf [
 	]
 
 	writeTreeIn: outfile [
-		outfile << 0.
+		outfile writeBit: (0 bitAt: 1).
 		outfile bitChar: self char.
 	]
 ]
@@ -244,7 +286,7 @@ Leaf subclass: Tree [
 	writeTreeIn: outfile [
 		left writeTreeIn: outfile.
 		right writeTreeIn: outfile.
-		outfile << 1.
+		outfile writeBit: (1 bitAt: 1).
 	]
 ]
 
@@ -330,6 +372,7 @@ opts =~ 'c' ifMatched: [
 			outfile := FileStream open: filenameOut
 								mode: FileStream write.
 			tree writeTreeIn: outfile.
+			outfile flushByte.
 			outfile close.
 		] on: SystemExceptions.FileError do: [:signal |
 			|errno|
