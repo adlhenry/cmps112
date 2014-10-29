@@ -102,10 +102,27 @@ FileStream extend [
 		].
 		^ tree := stack pop.
 	]
+
+	compressTo: outfile with: encodings [
+		|key encode bit|
+		[self atEnd not] whileTrue: [
+			key := self next value.
+			encode := encodings at: key.
+			encode do: [:char |
+				bit := char asBit.
+				outfile writeBit: bit.
+			].
+		].
+		outfile flushByte.
+	]
 ]
 
 "Print a character or its ASCII code."
 Character extend [
+	asBit [
+		^ self value bitAt: 1.
+	]
+
 	isPrint [
 		^ ($! <= self) & (self <= $~)
 	]
@@ -363,11 +380,15 @@ opts =~ 'c' ifMatched: [
 	ifTrue: [tree writeTreeIn: stdout.]
 	ifFalse: [
 		[
-			|outfile|
+			|outfile infile|
 			outfile := FileStream open: filenameOut
 								mode: FileStream write.
+			infile := FileStream open: filenameIn
+								mode: FileStream read.
 			tree writeTreeIn: outfile.
 			outfile flushByte.
+			infile compressTo: outfile with: encodings.
+			infile close.
 			outfile close.
 		] on: SystemExceptions.FileError do: [:signal |
 			|errno|
