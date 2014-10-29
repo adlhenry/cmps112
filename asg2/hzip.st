@@ -5,29 +5,44 @@
 execname := 'hzip.st'.
 nl := Character nl.
 
-"Load the frequency table from a file."
+"Bit I/O, frequency table load, and tree load."
 FileStream extend [
-	|bitNumber bitBuff|
+	|bitNumber bitBuffer|
 	
 	clearByte [
 		bitNumber := 8.
-		bitBuff := 0.
+		bitBuffer := 0.
 	]
 
 	flushByte [
 		|char|
 		bitNumber = 8 ifFalse: [
-			char := Character value: bitBuff asInteger.
+			char := Character value: bitBuffer asInteger.
 			self nextPut: char.
 			self clearByte.
 		]
 	]
 
 	writeBit: bit [
-		bitBuff isNil ifTrue: [self clearByte].
+		bitBuffer isNil ifTrue: [self clearByte].
 		bitNumber = 0 ifTrue: [self flushByte].
-		bitBuff := bitBuff bitAt: bitNumber put: bit.
+		bitBuffer := bitBuffer bitAt: bitNumber put: bit.
 		bitNumber := bitNumber - 1.
+	]
+
+	fillByte [
+		bitBuffer := self next.
+		bitNumber := 8.
+	]
+
+	nextBit [
+		|bit|
+		bitNumber isNil ifTrue: [bitNumber := 0.].
+		bitNumber = 0 ifTrue: [self fillByte].
+		bitBuffer isNil ifTrue: [ ^ nil ].
+		bit := bitBuffer value bitAt: bitNumber.
+		bitNumber := bitNumber - 1.
+		^ bit.
 	]
 
 	bitChar: char [
@@ -52,26 +67,6 @@ FileStream extend [
 			freqtable incr: ordChar.
 		]
 	]
-	
-	
-	|charV bitt bitNum|
-	clear [
-		bitNum := 0.
-	]
-	
-	newByte [
-		charV := self next.
-		bitNum := 8.
-	]
-	
-	nextBit [
-		bitNum isNil ifTrue: [self clear].
-		bitNum = 0 ifTrue: [self newByte].
-		charV isNil ifTrue: [ ^ nil ].
-		bitt := charV value bitAt: bitNum.
-		bitNum := bitNum - 1.
-		^ bitt.
-	]
 
 	loadTree [
 		|stack tree preBit|
@@ -85,15 +80,15 @@ FileStream extend [
 				].
 			].
 			preBit = 0 ifTrue: [
-				|bit bitBuffer bitIndex newLeaf|
-				bitBuffer := 0.
+				|bit bitChar bitIndex newLeaf|
+				bitChar := 0.
 				bitIndex := 8.
 				[bitIndex ~= 0] whileTrue: [
 					bit := self nextBit.
-					bitBuffer := bitBuffer bitAt: bitIndex put: bit.
+					bitChar := bitChar bitAt: bitIndex put: bit.
 					bitIndex := bitIndex - 1.
 				].
-				newLeaf := Leaf new: (bitBuffer asCharacter) count: 0.
+				newLeaf := Leaf new: (bitChar asCharacter) count: 0.
 				stack push: newLeaf.
 			].
 			preBit = 1 ifTrue: [
