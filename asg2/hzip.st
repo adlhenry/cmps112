@@ -115,6 +115,24 @@ FileStream extend [
 		].
 		outfile flushByte.
 	]
+
+	deCompressTo: outfile with: tree [
+		|bit currTree|
+		currTree := tree.
+		[bit ~= nil] whileTrue: [
+			bit := self nextBit.
+			bit = 0 ifTrue: [
+				currTree := currTree left.
+			].
+			bit = 1 ifTrue: [
+				currTree := currTree right.
+			].
+			currTree = Leaf ifTrue: [
+				outfile nextPut: currTree char.
+				currTree := tree.
+			].
+		].
+	]
 ]
 
 "Print a character or its ASCII code."
@@ -269,6 +287,8 @@ Object subclass: Leaf [
 "Leaf tree object."
 Leaf subclass: Tree [
 	|left right|
+	left [ ^ left ]
+	right [ ^ right ]
 
 	Tree class >> new: aChar count: aCount [
 		self shouldNotImplement
@@ -410,6 +430,16 @@ opts =~ 'u' ifMatched: [
 		infile := FileStream open: filenameIn
 							mode: FileStream read.
 		tree := infile loadTree.
+		filenameOut = nil 
+		ifTrue: [
+			infile deCompressTo: stdout with: tree.
+		].
+		ifFalse: [
+			outfile := FileStream open: filenameOut
+								mode: FileStream write.
+			infile deCompressTo: outfile with: tree.
+			outfile close.
+		].
 		infile close.
 	] on: SystemExceptions.FileError do: [:signal |
 		|errno|
