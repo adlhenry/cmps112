@@ -7,7 +7,7 @@ nl := Character nl.
 
 "Bit I/O, frequency table load, and tree load."
 FileStream extend [
-	|bitNumber bitBuffer|
+	|bitNumber bitBuffer treeFilled|
 	
 	clearByte [
 		bitNumber := 8.
@@ -40,6 +40,13 @@ FileStream extend [
 		bitNumber isNil ifTrue: [bitNumber := 0.].
 		bitNumber = 0 ifTrue: [self fillByte].
 		bitBuffer isNil ifTrue: [ ^ nil ].
+		treeFilled isNil ifTrue: [
+			bitBuffer value = 0 ifTrue: [
+				treeFilled := 1.
+				bitNumber := 0.
+				^ nil
+			].
+		].
 		bit := bitBuffer value bitAt: bitNumber.
 		bitNumber := bitNumber - 1.
 		^ bit.
@@ -72,19 +79,17 @@ FileStream extend [
 		|stack tree preBit|
 		preBit := 0.
 		stack := Stack new: 256.
-		[preBit ~= nil] whileTrue: [
+		[self atEnd not] whileTrue: [
 			preBit := self nextBit.
-			self atEnd ifTrue: [
-				preBit = 0 ifTrue: [
-					^ tree := stack pop.
-				].
-			].
+			preBit = nil ifTrue: [ ^ tree ].
 			preBit = 0 ifTrue: [
 				|bit bitChar bitIndex newLeaf|
 				bitChar := 0.
 				bitIndex := 8.
 				[bitIndex ~= 0] whileTrue: [
 					bit := self nextBit.
+					bit = nil ifTrue: [ ^ tree ].
+					"Check for 0 and 256"
 					bitChar := bitChar bitAt: bitIndex put: bit.
 					bitIndex := bitIndex - 1.
 				].
@@ -98,9 +103,9 @@ FileStream extend [
 				newTree := Tree new: ltree char 
 				count: 0 left: ltree right: rtree.
 				stack push: newTree.
+				tree := newTree.
 			].
 		].
-		^ tree := stack pop.
 	]
 
 	compressTo: outfile with: encodings [
@@ -119,7 +124,7 @@ FileStream extend [
 	deCompressTo: outfile with: tree [
 		|bit currTree|
 		currTree := tree.
-		[bit ~= nil] whileTrue: [
+		[self atEnd not] whileTrue: [
 			bit := self nextBit.
 			bit = 0 ifTrue: [
 				currTree := currTree left.
@@ -127,7 +132,7 @@ FileStream extend [
 			bit = 1 ifTrue: [
 				currTree := currTree right.
 			].
-			currTree = Leaf ifTrue: [
+			(currTree isMemberOf: Leaf) ifTrue: [
 				outfile nextPut: currTree char.
 				currTree := tree.
 			].
@@ -336,48 +341,56 @@ ifTrue: [
 ].
 
 "Load frequency table."
+opts =~ 't|c' ifMatched: [
 freqtable := ZeroArray new: 256.
-[
-	|infile|
-	infile := FileStream open: filenameIn
-						mode: FileStream read.
-	infile loadCharFreq: freqtable.
-	infile close.
-] on: SystemExceptions.FileError do: [:signal |
-	|errno|
-	errno := File errno.
-	stdout flush.
-	stderr << execname << ': ' << filenameIn << ': '
-		  << signal messageText << nl.
-	stderr flush.
+	[
+		|infile|
+		infile := FileStream open: filenameIn
+							mode: FileStream read.
+		infile loadCharFreq: freqtable.
+		infile close.
+	] on: SystemExceptions.FileError do: [:signal |
+		|errno|
+		errno := File errno.
+		stdout flush.
+		stderr << execname << ': ' << filenameIn << ': '
+			  << signal messageText << nl.
+		stderr flush.
+	].
 ].
 
 "Load priority queue from frequency table."
-pqueue := SortedCollection new.
-freqtable keysAndValuesDo: [:key :value |
-	(value notNil and: [value > 0]) ifTrue: [
-		newLeaf := Leaf new: (key asCharacter) count: value.
-		pqueue add: newLeaf.
-	]
+opts =~ 't|c' ifMatched: [
+	pqueue := SortedCollection new.
+	freqtable keysAndValuesDo: [:key :value |
+		(value notNil and: [value > 0]) ifTrue: [
+			newLeaf := Leaf new: (key asCharacter) count: value.
+			pqueue add: newLeaf.
+		]
+	].
+	opts =~ 'd' ifMatched: [pqueue inspect.].
 ].
-opts =~ 'd' ifMatched: [pqueue inspect.].
 
 "Unload priority queue into Huffman tree."
-[pqueue notEmpty] whileTrue: [
-	tree := pqueue removeFirst.
-	pqueue size = 0 ifTrue: [^ tree].
-	rtree := pqueue removeFirst.
-	newTree := Tree new: tree char count: (tree count + rtree count) 
-	left: tree right: rtree.
-	pqueue add: newTree.
+opts =~ 't|c' ifMatched: [
+	[pqueue notEmpty] whileTrue: [
+		tree := pqueue removeFirst.
+		pqueue size = 0 ifTrue: [^ tree].
+		rtree := pqueue removeFirst.
+		newTree := Tree new: tree char count: (tree count + rtree count) 
+		left: tree right: rtree.
+		pqueue add: newTree.
+	].
+	opts =~ 'd' ifMatched: [stdout << tree << nl.].
 ].
-opts =~ 'd' ifMatched: [stdout << tree << nl.].
 
 "Traverse Huffman tree into encoding array."
-encodings := Array new: 256.
-tree inorder: [:char :encoding |
-	encodings at: char asInteger put: encoding.
-] prefix: ''.
+opts =~ 't|c' ifMatched: [
+	encodings := ZeroArray new: 256.
+	tree inorder: [:char :encoding |
+		encodings at: char asInteger put: encoding.
+	] prefix: ''.
+].
 
 "Print out frequency and encoding table."
 opts =~ 't' ifMatched: [
@@ -396,42 +409,46 @@ opts =~ 't' ifMatched: [
 
 "Write the Huffman tree into the outfile."
 opts =~ 'c' ifMatched: [
-	filenameOut = nil 
-	ifTrue: [tree writeTreeIn: stdout.]
-	ifFalse: [
-		[
-			|outfile infile|
+	[
+		|infile outfile|
+		infile := FileStream open: filenameIn
+							mode: FileStream read.
+		filenameOut = nil
+		ifTrue: [
+			outfile := stdout.
+		]
+		ifFalse: [
 			outfile := FileStream open: filenameOut
 								mode: FileStream write.
-			infile := FileStream open: filenameIn
-								mode: FileStream read.
-			tree writeTreeIn: outfile.
-			outfile flushByte.
-			infile compressTo: outfile with: encodings.
-			infile close.
-			outfile close.
-		] on: SystemExceptions.FileError do: [:signal |
-			|errno|
-			errno := File errno.
-			stdout flush.
-			stderr << execname << ': ' << filenameOut << ': '
-				  << signal messageText << nl.
-			stderr flush.
 		].
-	]
+		tree writeTreeIn: outfile.
+		outfile flushByte.
+		char := Character value: 0.
+		outfile nextPut: char.
+		infile compressTo: outfile with: encodings.
+		outfile close.
+		infile close.
+	] on: SystemExceptions.FileError do: [:signal |
+		|errno|
+		errno := File errno.
+		stdout flush.
+		stderr << execname << ': ' << filenameOut << ': '
+			  << signal messageText << nl.
+		stderr flush.
+	].
 ].
 
 "Reconstruct Huffman tree from compressed file."
 opts =~ 'u' ifMatched: [
 	[
-		|infile|
+		|infile outfile|
 		infile := FileStream open: filenameIn
 							mode: FileStream read.
 		tree := infile loadTree.
 		filenameOut = nil 
 		ifTrue: [
 			infile deCompressTo: stdout with: tree.
-		].
+		]
 		ifFalse: [
 			outfile := FileStream open: filenameOut
 								mode: FileStream write.
@@ -447,5 +464,5 @@ opts =~ 'u' ifMatched: [
 			  << signal messageText << nl.
 		stderr flush.
 	].
+	opts =~ 'd' ifMatched: [stdout << tree << nl.].
 ].
-opts =~ '(k)' ifMatched: [stdout << tree << nl.].
