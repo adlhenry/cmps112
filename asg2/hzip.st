@@ -421,8 +421,6 @@ opts =~ 'c' ifMatched: [
 	]
 ].
 
-"Compress file."
-
 "Reconstruct Huffman tree from compressed file."
 opts =~ 'u' ifMatched: [
 	[
@@ -451,5 +449,3 @@ opts =~ 'u' ifMatched: [
 	].
 ].
 opts =~ '(k)' ifMatched: [stdout << tree << nl.].
-
-"Decompress file."
