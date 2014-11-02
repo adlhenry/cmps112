@@ -7,7 +7,7 @@ nl := Character nl.
 
 "Bit I/O, frequency table load, and tree load."
 FileStream extend [
-	|bitNumber bitBuffer treeFilled|
+	|bitNumber bitBuffer|
 	
 	clearByte [
 		bitNumber := 8.
@@ -29,6 +29,10 @@ FileStream extend [
 		bitBuffer := bitBuffer bitAt: bitNumber put: bit.
 		bitNumber := bitNumber - 1.
 	]
+	
+	clearBits [
+		bitNumber := 0.
+	]
 
 	fillByte [
 		bitBuffer := self next.
@@ -37,16 +41,9 @@ FileStream extend [
 
 	nextBit [
 		|bit|
-		bitNumber isNil ifTrue: [bitNumber := 0.].
+		bitNumber isNil ifTrue: [self clearBits].
 		bitNumber = 0 ifTrue: [self fillByte].
 		bitBuffer isNil ifTrue: [ ^ nil ].
-		treeFilled isNil ifTrue: [
-			bitBuffer value = 0 ifTrue: [
-				treeFilled := 1.
-				bitNumber := 0.
-				^ nil
-			].
-		].
 		bit := bitBuffer value bitAt: bitNumber.
 		bitNumber := bitNumber - 1.
 		^ bit.
@@ -55,7 +52,8 @@ FileStream extend [
 	bitChar: char [
 		|bit charVal bitIndex|
 		charVal := char value.
-		(charVal = 0) & (charVal = 256) ifTrue: [
+		"Check for 0 and 256"
+		(charVal = 256) ifTrue: [
 			bit := charVal bitAt: 8.
 			^ self writeBit: bit.
 		].
@@ -76,19 +74,16 @@ FileStream extend [
 	]
 
 	loadTree [
-		|stack tree preBit|
-		preBit := 0.
+		|stack preBit|
 		stack := Stack new: 256.
 		[self atEnd not] whileTrue: [
 			preBit := self nextBit.
-			preBit = nil ifTrue: [ ^ tree ].
 			preBit = 0 ifTrue: [
 				|bit bitChar bitIndex newLeaf|
 				bitChar := 0.
 				bitIndex := 8.
 				[bitIndex ~= 0] whileTrue: [
 					bit := self nextBit.
-					bit = nil ifTrue: [ ^ tree ].
 					"Check for 0 and 256"
 					bitChar := bitChar bitAt: bitIndex put: bit.
 					bitIndex := bitIndex - 1.
@@ -99,11 +94,14 @@ FileStream extend [
 			preBit = 1 ifTrue: [
 				|ltree rtree newTree|
 				rtree := stack pop.
+				stack size = 0 ifTrue: [
+					self clearBits.
+					^ rtree
+				].
 				ltree := stack pop.
 				newTree := Tree new: ltree char 
 				count: 0 left: ltree right: rtree.
 				stack push: newTree.
-				tree := newTree.
 			].
 		].
 	]
@@ -133,7 +131,9 @@ FileStream extend [
 				currTree := currTree right.
 			].
 			(currTree isMemberOf: Leaf) ifTrue: [
-				outfile nextPut: currTree char.
+				|char|
+				char := Character value: currTree char asInteger.
+				outfile nextPut: char.
 				currTree := tree.
 			].
 		].
@@ -177,7 +177,7 @@ Object subclass: Stack [
 	]
 
 	size [
-		^ theArray size.
+		^ top.
 	]
 
 	nl := Character nl.
@@ -377,7 +377,8 @@ opts =~ 't|c' ifMatched: [
 		tree := pqueue removeFirst.
 		pqueue size = 0 ifTrue: [^ tree].
 		rtree := pqueue removeFirst.
-		newTree := Tree new: tree char count: (tree count + rtree count) 
+		newTree := Tree new: tree char 
+		count: (tree count + rtree count)
 		left: tree right: rtree.
 		pqueue add: newTree.
 	].
@@ -387,9 +388,11 @@ opts =~ 't|c' ifMatched: [
 "Traverse Huffman tree into encoding array."
 opts =~ 't|c' ifMatched: [
 	encodings := ZeroArray new: 256.
-	tree inorder: [:char :encoding |
-		encodings at: char asInteger put: encoding.
-	] prefix: ''.
+	tree = nil ifFalse: [
+		tree inorder: [:char :encoding |
+			encodings at: char asInteger put: encoding.
+		] prefix: ''.
+	].
 ].
 
 "Print out frequency and encoding table."
@@ -407,7 +410,7 @@ opts =~ 't' ifMatched: [
 	]
 ].
 
-"Write the Huffman tree into the outfile."
+"Compress input file to the output file."
 opts =~ 'c' ifMatched: [
 	[
 		|infile outfile|
@@ -421,11 +424,12 @@ opts =~ 'c' ifMatched: [
 			outfile := FileStream open: filenameOut
 								mode: FileStream write.
 		].
-		tree writeTreeIn: outfile.
-		outfile flushByte.
-		char := Character value: 0.
-		outfile nextPut: char.
-		infile compressTo: outfile with: encodings.
+		tree = nil ifFalse: [
+			tree writeTreeIn: outfile.
+			outfile writeBit: (1 bitAt: 1).
+			outfile flushByte.
+			infile compressTo: outfile with: encodings.
+		].
 		outfile close.
 		infile close.
 	] on: SystemExceptions.FileError do: [:signal |
@@ -438,7 +442,7 @@ opts =~ 'c' ifMatched: [
 	].
 ].
 
-"Reconstruct Huffman tree from compressed file."
+"Decompress input file to the output file."
 opts =~ 'u' ifMatched: [
 	[
 		|infile outfile|
