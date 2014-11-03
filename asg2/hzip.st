@@ -296,7 +296,7 @@ Object subclass: Leaf [
 		visitor value: char value: string.
 	]
 
-	writeTreeIn: outfile [
+	writeIn: outfile [
 		outfile writeBit: (0 bitAt: 1).
 		outfile bitChar: self char.
 	]
@@ -333,9 +333,9 @@ Leaf subclass: Tree [
 		right inorder: visitor prefix: string, '1'.
 	]
 
-	writeTreeIn: outfile [
-		left writeTreeIn: outfile.
-		right writeTreeIn: outfile.
+	writeIn: outfile [
+		left writeIn: outfile.
+		right writeIn: outfile.
 		outfile writeBit: (1 bitAt: 1).
 	]
 ]
@@ -438,7 +438,7 @@ opts =~ 'c' ifMatched: [
 								mode: FileStream write.
 		].
 		tree = nil ifFalse: [
-			tree writeTreeIn: outfile.
+			tree writeIn: outfile.
 			outfile writeBit: (1 bitAt: 1).
 			outfile flushByte.
 			infile compressTo: outfile with: encodings.
