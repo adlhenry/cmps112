@@ -52,25 +52,26 @@ FileStream extend [
 	bitChar: char [
 		|bit charVal bitIndex|
 		charVal := char value.
-		"Check for 0 and 256"
-		(charVal = 256) ifTrue: [
-			bit := charVal bitAt: 8.
-			^ self writeBit: bit.
-		].
 		bitIndex := 8.
 		[bitIndex ~= 0] whileTrue: [
 			bit := charVal bitAt: bitIndex.
 			bitIndex := bitIndex - 1.
 			self writeBit: bit.
 		].
+		(charVal = 0) | (charVal = 256) ifTrue: [
+			self writeBit: (charVal bitAt: 9).
+		].
 	]
 
 	loadCharFreq: freqtable [
+		|ordChar|
 		[self atEnd not] whileTrue: [
-			|ordChar|
 			ordChar := self next asInteger.
 			freqtable incr: ordChar.
-		]
+		].
+		ordChar = nil ifFalse: [
+			freqtable incr: 256.
+		].
 	]
 
 	loadTree [
@@ -84,11 +85,16 @@ FileStream extend [
 				bitIndex := 8.
 				[bitIndex ~= 0] whileTrue: [
 					bit := self nextBit.
-					"Check for 0 and 256"
 					bitChar := bitChar bitAt: bitIndex put: bit.
 					bitIndex := bitIndex - 1.
 				].
 				newLeaf := Leaf new: (bitChar asCharacter) count: 0.
+				bitChar = 0 ifTrue: [
+					bit := self nextBit.
+					bit = 1 ifTrue: [
+						newLeaf := Leaf new: 256 count: 0.
+					].
+				].
 				stack push: newLeaf.
 			].
 			preBit = 1 ifTrue: [
@@ -116,13 +122,19 @@ FileStream extend [
 				outfile writeBit: bit.
 			].
 		].
+		encode := encodings at: 256.
+		encode do: [:char |
+			bit := char asBit.
+			outfile writeBit: bit.
+		].
 		outfile flushByte.
 	]
 
 	deCompressTo: outfile with: tree [
 		|bit currTree|
 		currTree := tree.
-		[self atEnd not] whileTrue: [
+		bit := 0.
+		[bit ~= nil] whileTrue: [
 			bit := self nextBit.
 			bit = 0 ifTrue: [
 				currTree := currTree left.
@@ -132,6 +144,7 @@ FileStream extend [
 			].
 			(currTree isMemberOf: Leaf) ifTrue: [
 				|char|
+				currTree char = 256 ifTrue: [ ^ char ].
 				char := Character value: currTree char asInteger.
 				outfile nextPut: char.
 				currTree := tree.
@@ -342,7 +355,7 @@ ifTrue: [
 
 "Load frequency table."
 opts =~ 't|c' ifMatched: [
-freqtable := ZeroArray new: 256.
+freqtable := ZeroArray new: 257.
 	[
 		|infile|
 		infile := FileStream open: filenameIn
@@ -387,7 +400,7 @@ opts =~ 't|c' ifMatched: [
 
 "Traverse Huffman tree into encoding array."
 opts =~ 't|c' ifMatched: [
-	encodings := ZeroArray new: 256.
+	encodings := ZeroArray new: 257.
 	tree = nil ifFalse: [
 		tree inorder: [:char :encoding |
 			encodings at: char asInteger put: encoding.
@@ -449,15 +462,17 @@ opts =~ 'u' ifMatched: [
 		infile := FileStream open: filenameIn
 							mode: FileStream read.
 		tree := infile loadTree.
-		filenameOut = nil 
-		ifTrue: [
-			infile deCompressTo: stdout with: tree.
-		]
-		ifFalse: [
-			outfile := FileStream open: filenameOut
-								mode: FileStream write.
-			infile deCompressTo: outfile with: tree.
-			outfile close.
+		tree = nil ifFalse: [
+			filenameOut = nil
+			ifTrue: [
+				infile deCompressTo: stdout with: tree.
+			]
+			ifFalse: [
+				outfile := FileStream open: filenameOut
+									mode: FileStream write.
+				infile deCompressTo: outfile with: tree.
+				outfile close.
+			].
 		].
 		infile close.
 	] on: SystemExceptions.FileError do: [:signal |
