@@ -1,21 +1,11 @@
 #!/afs/cats.ucsc.edu/courses/cmps112-wm/usr/racket/bin/mzscheme -qr
 ;; Author: Adam Henry, adlhenry@ucsc.edu"
 ;; $Id: sbi.scm,v 1.1 2014-11-03 11:16:32-08 - - $
-;;
-;; NAME
-;;    sbi.scm - silly basic interpreter
-;;
-;; SYNOPSIS
-;;    sbi.scm filename.sbir
-;;
-;; DESCRIPTION
-;;    The file mentioned in argv[1] is read and assumed to be an
-;;    SBIR program, which is then executed.  Currently it is only
-;;    printed.
-;;
 
+;; Stderr atom
 (define *stderr* (current-error-port))
 
+;; Program name atom
 (define *run-file*
 	(let-values
 		(((dirpath basepath root?)
@@ -23,16 +13,27 @@
 		(path->string basepath))
 )
 
+;; Warning display function
 (define (die list)
 	(for-each (lambda (item) (display item *stderr*)) list)
 	(newline *stderr*)
 	(exit 1)
 )
 
+;; Usage warning function
 (define (usage-exit)
 	(die `("Usage: " ,*run-file* " filename"))
 )
 
+;; Define symbol table hash
+(define symbol-table (make-hash))
+
+;; Symbol table load function
+(define (load-symbol-table program)
+	(map (lambda (line) (printf "~s --> ~s~n"
+	(car line) (cdr line))) program))
+
+;; Program statement read function
 (define (readlist-from-inputfile filename)
 	(let ((inputfile (open-input-file filename)))
 		 (if (not (input-port? inputfile))
@@ -41,15 +42,17 @@
 				  (close-input-port inputfile)
 						 program))))
 
+;; Debug print function
 (define (write-program-by-line filename program)
 	(printf "==================================================~n")
 	(printf "~a: ~s~n" *run-file* filename)
 	(printf "==================================================~n")
 	(printf "(~n")
-	;; STUB statement parser
-	(map (lambda (line) (printf "~s~n" line)) program)
+	(map (lambda (line) (printf "~s --> ~s~n"
+	(car line) (cdr line))) program)
 	(printf ")~n"))
 
+;; Program main function
 (define (main arglist)
 	(if (or (null? arglist) (not (null? (cdr arglist))))
 		(usage-exit)
@@ -57,4 +60,5 @@
 			   (program (readlist-from-inputfile sbprogfile)))
 			  (write-program-by-line sbprogfile program))))
 
+;; Call main function
 (main (vector->list (current-command-line-arguments)))
