@@ -1,4 +1,4 @@
-#!/afs/cats.ucsc.edu/courses/cmps112-wm/usr/racket-5.1/bin/mzscheme -qr
+#!/afs/cats.ucsc.edu/courses/cmps112-wm/usr/racket/bin/mzscheme -qr
 ;; Author: Adam Henry, adlhenry@ucsc.edu"
 ;; $Id: sbi.scm,v 1.1 2014-11-03 11:16:32-08 - - $
 ;;
