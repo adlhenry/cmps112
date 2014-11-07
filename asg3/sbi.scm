@@ -93,7 +93,21 @@
 
 ;; Expression evaluate function
 (define (eval-expr expr)
-	(format "~a" expr)
+	(if (or (null? expr) (number? expr))
+		expr
+		(let ((op (car expr))
+			(expr1 (car (cdr expr)))
+			(expr2 (car (cdr (cdr expr)))))
+			(cond
+				[(equal? op '+) (+ (eval-expr expr1) (eval-expr expr2))]
+				[(equal? op '-) (- (eval-expr expr1) (eval-expr expr2))]
+				[(equal? op '*) (* (eval-expr expr1) (eval-expr expr2))]
+				[(equal? op '/) (/ (eval-expr expr1) (eval-expr expr2))]
+				[(equal? op '%) (modulo (eval-expr expr1) (eval-expr expr2))]
+				[(equal? op '^) (expt (eval-expr expr1) (eval-expr expr2))]
+			)
+		)
+	)
 )
 
 ;; Dim subroutine
@@ -108,7 +122,10 @@
 
 ;; Goto subroutine
 (define (goto-stmt label)
-	(set! PC (hash-ref label-linenr (car label)))
+	(if (hash-has-key? symbol-table (car label))
+		(set! PC (hash-ref label-linenr (car label)))
+		(die `(,*run-file* ": goto: " ,label " undefined"))
+	)
 )
 
 ;; If subroutine
