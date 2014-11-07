@@ -10,7 +10,8 @@
 	(let-values
 		(((dirpath basepath root?)
 			(split-path (find-system-path 'run-file))))
-		(path->string basepath))
+		(path->string basepath)
+	)
 )
 
 ;; Warning display function
@@ -46,11 +47,15 @@
 ;; Program file read function
 (define (readlist-from-inputfile filename)
 	(let ((inputfile (open-input-file filename)))
-		 (if (not (input-port? inputfile))
-			 (die `(,*run-file* ": " ,filename ": open failed"))
-			 (let ((program (read inputfile)))
-				  (close-input-port inputfile)
-						 program))))
+		(if (not (input-port? inputfile))
+			(die `(,*run-file* ": " ,filename ": open failed"))
+			(let ((program (read inputfile)))
+				(close-input-port inputfile)
+				program
+			)
+		)
+	)
+)
 
 ;; Statement label hash function
 (define (label-hash label stmt)
@@ -86,9 +91,14 @@
 	)
 )
 
-;; Print subroutine
-(define (print-stmt printable)
-	(printf "~s~n" (car printable))
+;; Dim subroutine
+(define (dim-stmt array)
+	(printf "dim: ~s~n" array)
+)
+
+;; Let subroutine
+(define (let-stmt mem-expr)
+	(printf "let: ~s~n" mem-expr)
 )
 
 ;; Goto subroutine
@@ -96,19 +106,34 @@
 	(printf "goto: ~s~n" (car label))
 )
 
+;; If subroutine
+(define (if-stmt op-label)
+	(printf "if: ~s~n" op-label)
+)
+
+;; Print subroutine
+(define (print-stmt printable)
+	(printf "~s~n" (car printable))
+)
+
+;; Input subroutine
+(define (input-stmt memory)
+	(printf "input: ~s~n" memory)
+)
+
 ;; Statement execute function
 (define (exe-statement stmt)
 	(if (null? stmt)
 		stmt
 		(let ((stmt-type (car stmt))
-			(stmt-args (cdr stmt)))
+			(args (cdr stmt)))
 			(cond
-			[(equal? stmt-type 'dim) ('dim)]
-			[(equal? stmt-type 'let) ('let)]
-			[(equal? stmt-type 'goto) (goto-stmt stmt-args)]
-			[(equal? stmt-type 'if) ('if)]
-			[(equal? stmt-type 'print) (print-stmt stmt-args)]
-			[(equal? stmt-type 'input) ('input)]
+				[(equal? stmt-type 'dim) (dim-stmt args)]
+				[(equal? stmt-type 'let) (let-stmt args)]
+				[(equal? stmt-type 'goto) (goto-stmt args)]
+				[(equal? stmt-type 'if) (if-stmt args)]
+				[(equal? stmt-type 'print) (print-stmt args)]
+				[(equal? stmt-type 'input) (input-stmt args)]
 			)
 		)
 	)
@@ -166,7 +191,6 @@
 			(program (readlist-from-inputfile sbprogfile)))
 			(load-program program)
 			(run-program)
-			(print-symbol-table program)
 		)
 	)
 )
