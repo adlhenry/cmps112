@@ -103,7 +103,7 @@
 
 ;; Goto subroutine
 (define (goto-stmt label)
-	(printf "goto: ~s~n" (car label))
+	(set! PC (hash-ref label-linenr (car label)))
 )
 
 ;; If subroutine
