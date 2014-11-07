@@ -91,6 +91,11 @@
 	)
 )
 
+;; Expression evaluate function
+(define (eval-expr expr)
+	(format "~a" expr)
+)
+
 ;; Dim subroutine
 (define (dim-stmt array)
 	(printf "dim: ~s~n" array)
@@ -113,7 +118,16 @@
 
 ;; Print subroutine
 (define (print-stmt printable)
-	(printf "~s~n" (car printable))
+	(if (null? printable)
+		(printf "~n")
+		(let ((expr (car printable)) (rest (cdr printable)))
+			(if (string? expr)
+				(printf "~a" expr)
+				(printf "~a" (eval-expr expr))
+			)
+			(print-stmt rest)
+		)
+	)
 )
 
 ;; Input subroutine
