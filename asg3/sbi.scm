@@ -151,7 +151,9 @@
 
 ;; Let subroutine
 (define (let-stmt mem-expr)
-	(printf "let: ~s~n" mem-expr)
+	(let ((symbol (car mem-expr)) (expr (car (cdr mem-expr))))
+		(hash-set! symbol-table symbol (eval-expr expr))
+	)
 )
 
 ;; Goto subroutine
