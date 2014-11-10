@@ -38,11 +38,31 @@
 ;; Define label line-number hash
 (define label-linenr (make-hash))
 
+;; Define label table hash
+(define label-table (make-hash))
+
 ;; Define symbol table hash
 (define symbol-table (make-hash))
 
-;; Define variable table hash
-(define var-table (make-hash))
+;; Initialize built-in symbols
+(hash-set! symbol-table 'abs (lambda (num) (abs num)))
+(hash-set! symbol-table 'acos (lambda (num) (acos num)))
+(hash-set! symbol-table 'asin (lambda (num) (asin num)))
+(hash-set! symbol-table 'atan (lambda (num) (atan num)))
+(hash-set! symbol-table 'cos (lambda (num) (cos num)))
+(hash-set! symbol-table 'sin (lambda (num) (sin num)))
+(hash-set! symbol-table 'tan (lambda (num) (tan num)))
+(hash-set! symbol-table 'exp (lambda (num) (exp num)))
+(hash-set! symbol-table 'floor (lambda (num) (floor num)))
+(hash-set! symbol-table 'log (lambda (num) (log num)))
+(hash-set! symbol-table 'round (lambda (num) (round num)))
+(hash-set! symbol-table 'sqrt (lambda (num) (sqrt num)))
+(hash-set! symbol-table 'ceil (lambda (num) (ceiling num)))
+(hash-set! symbol-table 'trunc (lambda (num) (truncate num)))
+(hash-set! symbol-table 'log10 (lambda (num) (/ (log num) (log 10))))
+(hash-set! symbol-table 'log2 (lambda (num) (/ (log num) (log 2))))
+(hash-set! symbol-table 'pi pi)
+(hash-set! symbol-table 'e (exp 1))
 
 ;; Program file read function
 (define (readlist-from-inputfile filename)
@@ -60,8 +80,8 @@
 ;; Statement label hash function
 (define (label-hash label stmt)
 	(if (null? stmt)
-		(hash-set! symbol-table label stmt)
-		(hash-set! symbol-table label (car stmt))
+		(hash-set! label-table label stmt)
+		(hash-set! label-table label (car stmt))
 	)
 )
 
@@ -93,18 +113,32 @@
 
 ;; Expression evaluate function
 (define (eval-expr expr)
-	(if (or (null? expr) (number? expr))
-		expr
-		(let ((op (car expr))
-			(expr1 (car (cdr expr)))
-			(expr2 (car (cdr (cdr expr)))))
-			(cond
-				[(equal? op '+) (+ (eval-expr expr1) (eval-expr expr2))]
-				[(equal? op '-) (- (eval-expr expr1) (eval-expr expr2))]
-				[(equal? op '*) (* (eval-expr expr1) (eval-expr expr2))]
-				[(equal? op '/) (/ (eval-expr expr1) (eval-expr expr2))]
-				[(equal? op '%) (modulo (eval-expr expr1) (eval-expr expr2))]
-				[(equal? op '^) (expt (eval-expr expr1) (eval-expr expr2))]
+	(if (or (null? expr) (number? expr) (symbol? expr))
+		(cond
+			[(symbol? expr) (hash-ref symbol-table expr)]
+			[(equal? expr 0) 0.0]
+			[else expr]
+		)
+		(if (null? (cdr (cdr expr)))
+			(let ((op (car expr))
+				(expr1 (car (cdr expr))))
+				(cond
+					[(equal? op '+) (+ (eval-expr expr1))]
+					[(equal? op '-) (- (eval-expr expr1))]
+					[else ((hash-ref symbol-table op) (eval-expr expr1))]
+				)
+			)
+			(let ((op (car expr))
+				(expr1 (car (cdr expr)))
+				(expr2 (car (cdr (cdr expr)))))
+				(cond
+					[(equal? op '+) (+ (eval-expr expr1) (eval-expr expr2))]
+					[(equal? op '-) (- (eval-expr expr1) (eval-expr expr2))]
+					[(equal? op '*) (* (eval-expr expr1) (eval-expr expr2))]
+					[(equal? op '/) (/ (eval-expr expr1) (eval-expr expr2))]
+					[(equal? op '%) (modulo (eval-expr expr1) (eval-expr expr2))]
+					[(equal? op '^) (expt (eval-expr expr1) (eval-expr expr2))]
+				)
 			)
 		)
 	)
@@ -122,7 +156,7 @@
 
 ;; Goto subroutine
 (define (goto-stmt label)
-	(if (hash-has-key? symbol-table (car label))
+	(if (hash-has-key? label-table (car label))
 		(set! PC (hash-ref label-linenr (car label)))
 		(die `(,*run-file* ": goto: " ,label " undefined"))
 	)
@@ -177,7 +211,7 @@
 			PC
 			(let ((stmt-val (hash-ref stmt-list PC)))
 				(if (symbol? stmt-val)
-					(let* ((label stmt-val) (stmt (hash-ref symbol-table label)))
+					(let* ((label stmt-val) (stmt (hash-ref label-table label)))
 						(if (null? stmt)
 							stmt
 							(exe-statement stmt)
@@ -196,16 +230,16 @@
 )
 
 ;; Symbol table print function
-(define (print-symbol-table program)
+(define (print-label-table program)
 	(map (lambda (line)
 		(let ((stmt (cdr line)))
 			(if (null? stmt)
 				stmt
-				(if (hash-has-key? symbol-table (car stmt))
+				(if (hash-has-key? label-table (car stmt))
 					(printf "~s: [~s] --> ~s~n" 
 					(hash-ref label-linenr (car stmt))
 					(car stmt)
-					(hash-ref symbol-table (car stmt)))
+					(hash-ref label-table (car stmt)))
 					(car stmt)
 				)
 			)
