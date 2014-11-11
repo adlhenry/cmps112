@@ -138,6 +138,12 @@
 					[(equal? op '/) (/ (eval-expr expr1) (eval-expr expr2))]
 					[(equal? op '%) (modulo (eval-expr expr1) (eval-expr expr2))]
 					[(equal? op '^) (expt (eval-expr expr1) (eval-expr expr2))]
+					[(equal? op '=) (= (eval-expr expr1) (eval-expr expr2))]
+					[(equal? op '<) (< (eval-expr expr1) (eval-expr expr2))]
+					[(equal? op '>) (> (eval-expr expr1) (eval-expr expr2))]
+					[(equal? op '<>) (not (= (eval-expr expr1) (eval-expr expr2)))]
+					[(equal? op '>=) (>= (eval-expr expr1) (eval-expr expr2))]
+					[(equal? op '<=) (<= (eval-expr expr1) (eval-expr expr2))]
 				)
 			)
 		)
@@ -188,7 +194,15 @@
 
 ;; If subroutine
 (define (if-stmt op-label)
-	(printf "if: ~s~n" op-label)
+	(let ((expr (car op-label)) (label (car (cdr op-label))))
+		(if (eval-expr expr)
+			(if (hash-has-key? label-table label)
+				(set! PC (hash-ref label-linenr label))
+				(die `(,*run-file* ": if: " ,label " undefined"))
+			)
+			expr
+		)
+	)
 )
 
 ;; Print subroutine
