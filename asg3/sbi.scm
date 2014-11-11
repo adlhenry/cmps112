@@ -145,14 +145,36 @@
 )
 
 ;; Dim subroutine
-(define (dim-stmt array)
-	(printf "dim: ~s~n" array)
+(define (dim-stmt array-expr)
+	(let* ((symbol (car (car array-expr)))
+		(expr (car (cdr (car array-expr))))
+		(size (round (eval-expr expr))))
+		(if (< size 0)
+			(die `(,*run-file* ": dim: " ,symbol " negative array size"))
+			(let ((vec (make-vector size)))
+				(hash-set! symbol-table symbol
+					(lambda args
+						(if (null? (cdr args))
+							(vector-ref vec (- (car args) 1))
+							(vector-set! vec (- (car args) 1) (car (cdr args)))
+						)
+					)
+				)
+			)
+		)
+	)
 )
 
 ;; Let subroutine
 (define (let-stmt mem-expr)
 	(let ((symbol (car mem-expr)) (expr (car (cdr mem-expr))))
-		(hash-set! symbol-table symbol (eval-expr expr))
+		(if (pair? symbol)
+			(let ((array (hash-ref symbol-table (car symbol)))
+				(index (eval-expr (car (cdr symbol)))))
+				(array index (eval-expr expr))
+			)
+			(hash-set! symbol-table symbol (eval-expr expr))
+		)
 	)
 )
 
