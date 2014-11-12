@@ -45,22 +45,48 @@
 (define symbol-table (make-hash))
 
 ;; Initialize built-in symbols
-(hash-set! symbol-table 'abs (lambda (num) (abs num)))
-(hash-set! symbol-table 'acos (lambda (num) (acos num)))
-(hash-set! symbol-table 'asin (lambda (num) (asin num)))
-(hash-set! symbol-table 'atan (lambda (num) (atan num)))
-(hash-set! symbol-table 'cos (lambda (num) (cos num)))
-(hash-set! symbol-table 'sin (lambda (num) (sin num)))
-(hash-set! symbol-table 'tan (lambda (num) (tan num)))
-(hash-set! symbol-table 'exp (lambda (num) (exp num)))
-(hash-set! symbol-table 'floor (lambda (num) (floor num)))
-(hash-set! symbol-table 'log (lambda (num) (log num)))
-(hash-set! symbol-table 'round (lambda (num) (round num)))
-(hash-set! symbol-table 'sqrt (lambda (num) (sqrt num)))
-(hash-set! symbol-table 'ceil (lambda (num) (ceiling num)))
-(hash-set! symbol-table 'trunc (lambda (num) (truncate num)))
-(hash-set! symbol-table 'log10 (lambda (num) (/ (log num) (log 10))))
-(hash-set! symbol-table 'log2 (lambda (num) (/ (log num) (log 2))))
+(hash-set! symbol-table '+
+	(lambda args
+		(if (null? (cdr args))
+			(+ (car args))
+			(+ (car args) (car (cdr args)))
+		)
+	)
+)
+(hash-set! symbol-table '-
+	(lambda args
+		(if (null? (cdr args))
+			(- (car args))
+			(- (car args) (car (cdr args)))
+		)
+	)
+)
+(hash-set! symbol-table '* (lambda (x y) (* x y)))
+(hash-set! symbol-table '/ (lambda (x y) (/ (+ x 0.0) (+ y 0.0))))
+(hash-set! symbol-table '% (lambda (x y) (modulo x y)))
+(hash-set! symbol-table '^ (lambda (x y) (expt x y)))
+(hash-set! symbol-table '= (lambda (x y) (= x y)))
+(hash-set! symbol-table '< (lambda (x y) (< x y)))
+(hash-set! symbol-table '> (lambda (x y) (> x y)))
+(hash-set! symbol-table '<> (lambda (x y) (not (= x y))))
+(hash-set! symbol-table '>= (lambda (x y) (>= x y)))
+(hash-set! symbol-table '<= (lambda (x y) (<= x y)))
+(hash-set! symbol-table 'abs (lambda (x) (abs x)))
+(hash-set! symbol-table 'acos (lambda (x) (acos x)))
+(hash-set! symbol-table 'asin (lambda (x) (asin x)))
+(hash-set! symbol-table 'atan (lambda (x) (atan x)))
+(hash-set! symbol-table 'cos (lambda (x) (cos x)))
+(hash-set! symbol-table 'sin (lambda (x) (sin x)))
+(hash-set! symbol-table 'tan (lambda (x) (tan x)))
+(hash-set! symbol-table 'exp (lambda (x) (exp x)))
+(hash-set! symbol-table 'floor (lambda (x) (floor x)))
+(hash-set! symbol-table 'log (lambda (x) (log (+ x 0.0))))
+(hash-set! symbol-table 'round (lambda (x) (round x)))
+(hash-set! symbol-table 'sqrt (lambda (x) (sqrt x)))
+(hash-set! symbol-table 'ceil (lambda (x) (ceiling x)))
+(hash-set! symbol-table 'trunc (lambda (x) (truncate x)))
+(hash-set! symbol-table 'log10 (lambda (x) (/ (log (+ x 0.0)) (log 10))))
+(hash-set! symbol-table 'log2 (lambda (x) (/ (log (+ x 0.0)) (log 2))))
 (hash-set! symbol-table 'pi pi)
 (hash-set! symbol-table 'e (exp 1))
 
@@ -114,37 +140,19 @@
 ;; Expression evaluate function
 (define (eval-expr expr)
 	(if (or (null? expr) (number? expr) (symbol? expr))
-		(cond
-			[(symbol? expr) (hash-ref symbol-table expr)]
-			[(equal? expr 0) 0.0]
-			[else expr]
+		(if (symbol? expr)
+			(hash-ref symbol-table expr)
+			expr
 		)
 		(if (null? (cdr (cdr expr)))
 			(let ((op (car expr))
 				(expr1 (car (cdr expr))))
-				(cond
-					[(equal? op '+) (+ (eval-expr expr1))]
-					[(equal? op '-) (- (eval-expr expr1))]
-					[else ((hash-ref symbol-table op) (eval-expr expr1))]
-				)
+				((hash-ref symbol-table op) (eval-expr expr1))
 			)
 			(let ((op (car expr))
 				(expr1 (car (cdr expr)))
 				(expr2 (car (cdr (cdr expr)))))
-				(cond
-					[(equal? op '+) (+ (eval-expr expr1) (eval-expr expr2))]
-					[(equal? op '-) (- (eval-expr expr1) (eval-expr expr2))]
-					[(equal? op '*) (* (eval-expr expr1) (eval-expr expr2))]
-					[(equal? op '/) (/ (eval-expr expr1) (eval-expr expr2))]
-					[(equal? op '%) (modulo (eval-expr expr1) (eval-expr expr2))]
-					[(equal? op '^) (expt (eval-expr expr1) (eval-expr expr2))]
-					[(equal? op '=) (= (eval-expr expr1) (eval-expr expr2))]
-					[(equal? op '<) (< (eval-expr expr1) (eval-expr expr2))]
-					[(equal? op '>) (> (eval-expr expr1) (eval-expr expr2))]
-					[(equal? op '<>) (not (= (eval-expr expr1) (eval-expr expr2)))]
-					[(equal? op '>=) (>= (eval-expr expr1) (eval-expr expr2))]
-					[(equal? op '<=) (<= (eval-expr expr1) (eval-expr expr2))]
-				)
+				((hash-ref symbol-table op) (eval-expr expr1) (eval-expr expr2))
 			)
 		)
 	)
