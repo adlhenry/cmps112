@@ -2,6 +2,9 @@
 ;; Author: Adam Henry, adlhenry@ucsc.edu"
 ;; $Id: sbi.scm,v 1.1 2014-11-03 11:16:32-08 - - $
 
+;; Stdin atom
+(define *stdin* (current-input-port))
+
 ;; Stderr atom
 (define *stderr* (current-error-port))
 
@@ -229,7 +232,21 @@
 
 ;; Input subroutine
 (define (input-stmt memory)
-	(printf "input: ~s~n" memory)
+	(let ((incount 0))
+		(map (lambda (var)
+			(let ((val (read *stdin*)))
+				(cond
+					[(number? val)
+					(hash-set! symbol-table var val)
+					(set! incount (+ incount 1))]
+					[(eof-object? val) (set! incount (- 1))]
+					[else (die `(,*run-file* ": input: " ,val " non-numeric"))]
+				)
+			))
+			memory
+		)
+		(hash-set! symbol-table 'inputcount incount)
+	)
 )
 
 ;; Statement execute function
