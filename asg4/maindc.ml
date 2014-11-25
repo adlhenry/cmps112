@@ -15,7 +15,14 @@ let pop = Stack.pop
 let ord thechar = int_of_char thechar
 type binop_t = bigint -> bigint -> bigint
 
-let print_number number = printf "%s\n%!" (string_of_bigint number)
+let rec print_rec s_number =
+	let nlen = (String.length s_number) in
+	if nlen > 70 then
+		(printf "%s%s\n%!" (String.sub s_number 0 69) "\\";
+		print_rec (String.sub s_number 69 (nlen - 69)))
+	else printf "%s\n%!" s_number
+
+let print_number number = print_rec (string_of_bigint number)
 
 let print_stackempty () = printf "stack empty\n%!"
 
@@ -63,7 +70,7 @@ let execute (thestack: stack_t) (oper: char) =
 					| Operator oper       -> execute thestack oper
 					);
 				 toploop ()
-			with End_of_file -> printf "End_of_file\n%!";
+			with End_of_file -> ();
 		in  toploop ()
 
 let readfiles () =
