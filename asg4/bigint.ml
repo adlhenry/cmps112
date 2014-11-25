@@ -47,21 +47,47 @@ let string_of_bigint (Bigint (sign, value)) =
 			((if sign = Pos then "" else "-") ::
 			(map string_of_int reversed))
 
+let rec cmp list1 list2 max = match (list1, list2, max) with
+	| [], [], max        -> max
+	| list1, [], max     -> 1
+	| [], list2, max     -> (-1)
+	| car1::cdr1, car2::cdr2, max  ->
+		if car1 > car2
+		then cmp cdr1 cdr2 1
+		else cmp cdr1 cdr2 (-1)
+
 let rec add' list1 list2 carry = match (list1, list2, carry) with
-| list1, [], 0       -> list1
-| [], list2, 0       -> list2
-| list1, [], carry   -> add' list1 [carry] 0
-| [], list2, carry   -> add' [carry] list2 0
-| car1::cdr1, car2::cdr2, carry ->
-	let sum = car1 + car2 + carry
-	in  sum mod radix :: add' cdr1 cdr2 (sum / radix)
+	| list1, [], 0       -> list1
+	| [], list2, 0       -> list2
+	| list1, [], carry   -> add' list1 [carry] 0
+	| [], list2, carry   -> add' [carry] list2 0
+	| car1::cdr1, car2::cdr2, carry ->
+		let sum = car1 + car2 + carry
+		in  sum mod radix :: add' cdr1 cdr2 (sum / radix)
+
+let rec sub' list1 list2 carry = match (list1, list2, carry) with
+	| list1, [], 0       -> list1
+	| [], list2, 0       -> list2
+	| list1, [], carry   -> sub' list1 [carry] 0
+	| [], list2, carry   -> sub' [carry] list2 0
+	| car1::cdr1, car2::cdr2, carry ->
+		if (car1 - carry) < car2 
+		then (car1 - carry + 10 - car2) :: sub' cdr1 cdr2 1
+		else (car1 - carry - car2) :: sub' cdr1 cdr2 0
 
 let add (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
 	if neg1 = neg2
 	then Bigint (neg1, add' value1 value2 0)
-	else zero
+	else if (cmp value1 value2 0) > 0
+		then Bigint (neg1, sub' value1 value2 0)
+		else Bigint ((if neg1 = Pos then Neg else Pos), sub' value2 value1 0)
 
-let sub = add
+let sub (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
+	if neg1 = neg2
+	then if (cmp value1 value2 0) > 0
+		then Bigint (neg1, sub' value1 value2 0)
+		else Bigint ((if neg1 = Pos then Neg else Pos), sub' value2 value1 0)
+	else Bigint (neg1, add' value1 value2 0)
 
 let mul = add
 
