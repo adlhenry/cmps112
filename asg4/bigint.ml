@@ -83,6 +83,14 @@ let rec mul' mlist rlist vlist times =
 	| mlist, rlist, vlist, times   ->
 		mul' mlist (add' rlist vlist 0) vlist (times - 1)
 
+let rec pow' mlist rlist vlist times =
+	match (mlist, rlist, vlist, times) with
+	| [], rlist, vlist, 0          -> rlist
+	| car1::cdr1, rlist, vlist, 0  ->
+		pow' cdr1 rlist (pow' [] [1] vlist 10) car1
+	| mlist, rlist, vlist, times   ->
+		pow' mlist (mul' (cdr rlist) [] vlist (car rlist)) vlist (times - 1)
+
 let add (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
 	if neg1 = neg2
 	then Bigint (neg1, add' value1 value2 0)
@@ -106,6 +114,9 @@ let div = add
 
 let rem = add
 
-let pow = add
+let pow (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
+	if neg2 = Pos
+	then Bigint (neg1, pow' (cdr value2) [1] value1 (car value2))
+	else zero
 
 end
