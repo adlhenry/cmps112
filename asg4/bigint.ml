@@ -74,6 +74,14 @@ let rec sub' list1 list2 carry = match (list1, list2, carry) with
 		if (car1 - carry) < car2 
 		then (car1 - carry + 10 - car2) :: sub' cdr1 cdr2 1
 		else (car1 - carry - car2) :: sub' cdr1 cdr2 0
+		
+let rec mul' mlist rlist vlist times =
+	match (mlist, rlist, vlist, times) with
+	| [], rlist, vlist, 0          -> rlist
+	| car1::cdr1, rlist, vlist, 0  ->
+		mul' cdr1 rlist (mul' [] [] vlist 10) car1
+	| mlist, rlist, vlist, times   ->
+		mul' mlist (add' rlist vlist 0) vlist (times - 1)
 
 let add (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
 	if neg1 = neg2
@@ -89,7 +97,10 @@ let sub (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
 		else Bigint ((if neg1 = Pos then Neg else Pos), sub' value2 value1 0)
 	else Bigint (neg1, add' value1 value2 0)
 
-let mul = add
+let mul (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
+	if neg1 = neg2
+	then Bigint (Pos, mul' (cdr value1) [] value2 (car value1))
+	else Bigint (Neg, mul' (cdr value1) [] value2 (car value1))
 
 let div = add
 
