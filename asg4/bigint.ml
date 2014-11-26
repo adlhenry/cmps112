@@ -19,6 +19,7 @@ let strlen    = String.length
 let strsub    = String.sub
 let zero      = Bigint (Pos, [])
 
+(* Return a character list from a string *)
 let charlist_of_string str = 
 	let last = strlen str - 1
 	in  let rec charlist pos result =
@@ -27,6 +28,7 @@ let charlist_of_string str =
 		else charlist (pos - 1) (str.[pos] :: result)
 in  charlist last []
 
+(* Return a Bigint from a string *)
 let bigint_of_string str =
 	let len = strlen str
 	in  let to_intlist first =
@@ -39,6 +41,7 @@ let bigint_of_string str =
 				then Bigint (Neg, to_intlist 1)
 				else Bigint (Pos, to_intlist 0)
 
+(* Return a string from a Bigint *)
 let string_of_bigint (Bigint (sign, value)) =
 	match value with
 	| []    -> "0"
@@ -47,6 +50,7 @@ let string_of_bigint (Bigint (sign, value)) =
 			((if sign = Pos then "" else "-") ::
 			(map string_of_int reversed))
 
+(* Cmp function *)
 let rec cmp list1 list2 max = match (list1, list2, max) with
 	| [], [], max        -> max
 	| list1, [], max     -> 1
@@ -56,6 +60,7 @@ let rec cmp list1 list2 max = match (list1, list2, max) with
 		then cmp cdr1 cdr2 1
 		else cmp cdr1 cdr2 (-1)
 
+(* Absolute add function *)
 let rec add' list1 list2 carry = match (list1, list2, carry) with
 	| list1, [], 0       -> list1
 	| [], list2, 0       -> list2
@@ -65,6 +70,7 @@ let rec add' list1 list2 carry = match (list1, list2, carry) with
 		let sum = car1 + car2 + carry
 		in  sum mod radix :: add' cdr1 cdr2 (sum / radix)
 
+(* Absolute subtract function *)
 let rec sub' list1 list2 carry = match (list1, list2, carry) with
 	| list1, [], 0       -> list1
 	| [], list2, 0       -> list2
@@ -74,7 +80,8 @@ let rec sub' list1 list2 carry = match (list1, list2, carry) with
 		if (car1 - carry) < car2 
 		then (car1 - carry + 10 - car2) :: sub' cdr1 cdr2 1
 		else (car1 - carry - car2) :: sub' cdr1 cdr2 0
-		
+
+(* Absolute multiply function *)
 let rec mul' mlist rlist vlist times =
 	match (mlist, rlist, vlist, times) with
 	| [], rlist, vlist, 0          -> rlist
@@ -83,6 +90,7 @@ let rec mul' mlist rlist vlist times =
 	| mlist, rlist, vlist, times   ->
 		mul' mlist (add' rlist vlist 0) vlist (times - 1)
 
+(* Absolute power function *)
 let rec pow' mlist rlist vlist times =
 	match (mlist, rlist, vlist, times) with
 	| [], rlist, vlist, 0          -> rlist
@@ -91,6 +99,7 @@ let rec pow' mlist rlist vlist times =
 	| mlist, rlist, vlist, times   ->
 		pow' mlist (mul' (cdr rlist) [] vlist (car rlist)) vlist (times - 1)
 
+(* Add function *)
 let add (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
 	if neg1 = neg2
 	then Bigint (neg1, add' value1 value2 0)
@@ -98,6 +107,7 @@ let add (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
 		then Bigint (neg1, sub' value1 value2 0)
 		else Bigint ((if neg1 = Pos then Neg else Pos), sub' value2 value1 0)
 
+(* Subtract function *)
 let sub (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
 	if neg1 = neg2
 	then if (cmp value1 value2 0) > 0
@@ -105,15 +115,19 @@ let sub (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
 		else Bigint ((if neg1 = Pos then Neg else Pos), sub' value2 value1 0)
 	else Bigint (neg1, add' value1 value2 0)
 
+(* Multiply function *)
 let mul (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
 	if neg1 = neg2
 	then Bigint (Pos, mul' (cdr value1) [] value2 (car value1))
 	else Bigint (Neg, mul' (cdr value1) [] value2 (car value1))
 
+(* Divide function *)
 let div = add
 
+(* Remainder function *)
 let rem = add
 
+(* Power function *)
 let pow (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
 	if neg2 = Pos
 	then Bigint (neg1, pow' (cdr value2) [1] value1 (car value2))
