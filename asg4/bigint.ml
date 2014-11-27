@@ -103,16 +103,16 @@ let rec mul' mlist rlist vlist times =
 		mul' mlist (add' rlist vlist 0) vlist (times - 1)
 
 (* Absolute divide function *)
-let rec div' nlist dlist rlist =
-	let rec subdiv nlist dlist rlist vlist =
-		if dlist = [] || rlist = [] then [vlist; nlist]
+let rec div' nlist dlist len =
+	let rec subdiv nlist dlist len times vlist =
+		if len < 0 then [vlist; nlist]
 		else if (cmp nlist dlist) >= 0
 			then subdiv (canon (reverse (sub' nlist dlist 0))) 
-				dlist rlist (add' vlist rlist 0)
-			else subdiv nlist (cdr dlist) (cdr rlist) vlist
+				dlist len (times + 1) vlist
+			else subdiv nlist (cdr dlist) (len - 1) 0 (times :: vlist)
 	in if (cmp nlist dlist) >= 0
-	then div' nlist (0 :: dlist) (0 :: rlist)
-	else subdiv nlist (cdr dlist) (cdr rlist) [0]
+	then div' nlist (0 :: dlist) (len + 1)
+	else subdiv nlist (cdr dlist) (len - 1) 0 []
 
 (* Absolute power function *)
 let rec pow' mlist rlist vlist times =
@@ -150,14 +150,14 @@ let mul (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
 (* Divide function *)
 let div (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
 	if neg1 = neg2
-	then Bigint (Pos, (car (div' value1 value2 [1])))
-	else Bigint (Neg, (car (div' value1 value2 [1])))
+	then Bigint (Pos, (car (div' value1 value2 0)))
+	else Bigint (Neg, (car (div' value1 value2 0)))
 
 (* Remainder function *)
 let rem (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
 	if neg1 = neg2
-	then Bigint (Pos, (car (cdr (div' value1 value2 [1]))))
-	else Bigint (Neg, (car (cdr (div' value1 value2 [1]))))
+	then Bigint (Pos, (car (cdr (div' value1 value2 0))))
+	else Bigint (Neg, (car (cdr (div' value1 value2 0))))
 
 (* Power function *)
 let pow (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
