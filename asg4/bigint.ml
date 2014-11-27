@@ -23,33 +23,32 @@ let zero      = Bigint (Pos, [])
 (* Return a character list from a string *)
 let charlist_of_string str = 
 	let last = strlen str - 1
-	in  let rec charlist pos result =
+	in let rec charlist pos result =
 		if pos < 0
 		then result
 		else charlist (pos - 1) (str.[pos] :: result)
-in  charlist last []
+in charlist last []
 
 (* Return a Bigint from a string *)
 let bigint_of_string str =
 	let len = strlen str
-	in  let to_intlist first =
+	in let to_intlist first =
 	let substr = strsub str first (len - first) in
 	let digit char = int_of_char char - int_of_char '0' in
 	map digit (reverse (charlist_of_string substr))
-		in  if   len = 0
-			then zero
-				else if   str.[0] = '_'
-				then Bigint (Neg, to_intlist 1)
-				else Bigint (Pos, to_intlist 0)
+	in if len = 0
+		then zero
+		else if str.[0] = '_'
+			then Bigint (Neg, to_intlist 1)
+			else Bigint (Pos, to_intlist 0)
 
 (* Return a string from a Bigint *)
 let string_of_bigint (Bigint (sign, value)) =
 	match value with
 	| []    -> "0"
 	| value -> let reversed = reverse value
-		in  strcat ""
-			((if sign = Pos then "" else "-") ::
-			(map string_of_int reversed))
+		in strcat "" ((if sign = Pos then "" else "-") ::
+		(map string_of_int reversed))
 
 (* Strip leading zeros from an int-list *)
 let rec canon vlist = if vlist = []
@@ -91,7 +90,7 @@ let rec sub' list1 list2 carry = match (list1, list2, carry) with
 	| [], list2, carry   -> sub' [carry] list2 0
 	| car1::cdr1, car2::cdr2, carry ->
 		if (car1 - carry) < car2 
-		then (car1 - carry + 10 - car2) :: sub' cdr1 cdr2 1
+		then (car1 - carry + radix - car2) :: sub' cdr1 cdr2 1
 		else (car1 - carry - car2) :: sub' cdr1 cdr2 0
 
 (* Absolute multiply function *)
@@ -99,7 +98,7 @@ let rec mul' mlist rlist vlist times =
 	match (mlist, rlist, vlist, times) with
 	| [], rlist, vlist, 0          -> rlist
 	| car1::cdr1, rlist, vlist, 0  ->
-		mul' cdr1 rlist (mul' [] [] vlist 10) car1
+		mul' cdr1 rlist (mul' [] [] vlist radix) car1
 	| mlist, rlist, vlist, times   ->
 		mul' mlist (add' rlist vlist 0) vlist (times - 1)
 
@@ -112,8 +111,8 @@ let rec div' nlist dlist rlist =
 				dlist rlist (add' vlist (car rlist) 0)
 			else subdiv nlist (cdr dlist) (cdr rlist) vlist
 	in if (cmp nlist (car dlist)) >= 0
-	then div' nlist ((mul' [] [] (car dlist) 10)::dlist) 
-		((mul' [] [] (car rlist) 10)::rlist)
+	then div' nlist ((mul' [] [] (car dlist) radix) :: dlist) 
+		((mul' [] [] (car rlist) radix) :: rlist)
 	else subdiv nlist (cdr dlist) (cdr rlist) [0]
 
 (* Absolute power function *)
@@ -121,7 +120,7 @@ let rec pow' mlist rlist vlist times =
 	match (mlist, rlist, vlist, times) with
 	| [], rlist, vlist, 0          -> rlist
 	| car1::cdr1, rlist, vlist, 0  ->
-		pow' cdr1 rlist (pow' [] [1] vlist 10) car1
+		pow' cdr1 rlist (pow' [] [1] vlist radix) car1
 	| mlist, rlist, vlist, times   ->
 		pow' mlist (mul' (cdr rlist) [] vlist (car rlist)) vlist (times - 1)
 
