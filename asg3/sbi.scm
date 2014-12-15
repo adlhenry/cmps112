@@ -52,7 +52,7 @@
 	(lambda args
 		(if (null? (cdr args))
 			(+ (car args))
-			(+ (car args) (car (cdr args)))
+			(+ (car args) (cadr args))
 		)
 	)
 )
@@ -60,7 +60,7 @@
 	(lambda args
 		(if (null? (cdr args))
 			(- (car args))
-			(- (car args) (car (cdr args)))
+			(- (car args) (cadr args))
 		)
 	)
 )
@@ -147,14 +147,14 @@
 			(hash-ref symbol-table expr)
 			expr
 		)
-		(if (null? (cdr (cdr expr)))
+		(if (null? (cddr expr))
 			(let ((op (car expr))
-				(expr1 (car (cdr expr))))
+				(expr1 (cadr expr)))
 				((hash-ref symbol-table op) (eval-expr expr1))
 			)
 			(let ((op (car expr))
-				(expr1 (car (cdr expr)))
-				(expr2 (car (cdr (cdr expr)))))
+				(expr1 (cadr expr))
+				(expr2 (caddr expr)))
 				((hash-ref symbol-table op) (eval-expr expr1) (eval-expr expr2))
 			)
 		)
@@ -163,8 +163,8 @@
 
 ;; Dim subroutine
 (define (dim-stmt array-expr)
-	(let* ((symbol (car (car array-expr)))
-		(expr (car (cdr (car array-expr))))
+	(let* ((symbol (caar array-expr))
+		(expr (cadar array-expr))
 		(size (round (eval-expr expr))))
 		(if (< size 0)
 			(die `(,*run-file* ": dim: " ,symbol " negative array size"))
@@ -173,7 +173,7 @@
 					(lambda args
 						(if (null? (cdr args))
 							(vector-ref vec (- (car args) 1))
-							(vector-set! vec (- (car args) 1) (car (cdr args)))
+							(vector-set! vec (- (car args) 1) (cadr args))
 						)
 					)
 				)
@@ -184,10 +184,10 @@
 
 ;; Let subroutine
 (define (let-stmt mem-expr)
-	(let ((symbol (car mem-expr)) (expr (car (cdr mem-expr))))
+	(let ((symbol (car mem-expr)) (expr (cadr mem-expr)))
 		(if (pair? symbol)
 			(let ((array (hash-ref symbol-table (car symbol)))
-				(index (eval-expr (car (cdr symbol)))))
+				(index (eval-expr (cadr symbol))))
 				(array index (eval-expr expr))
 			)
 			(hash-set! symbol-table symbol (eval-expr expr))
@@ -205,7 +205,7 @@
 
 ;; If subroutine
 (define (if-stmt op-label)
-	(let ((expr (car op-label)) (label (car (cdr op-label))))
+	(let ((expr (car op-label)) (label (cadr op-label)))
 		(if (eval-expr expr)
 			(if (hash-has-key? label-table label)
 				(set! PC (hash-ref label-linenr label))
@@ -289,25 +289,6 @@
 				(run-program)
 			)
 		)
-	)
-)
-
-;; Symbol table print function
-(define (print-label-table program)
-	(map (lambda (line)
-		(let ((stmt (cdr line)))
-			(if (null? stmt)
-				stmt
-				(if (hash-has-key? label-table (car stmt))
-					(printf "~s: [~s] --> ~s~n" 
-					(hash-ref label-linenr (car stmt))
-					(car stmt)
-					(hash-ref label-table (car stmt)))
-					(car stmt)
-				)
-			)
-		))
-		program
 	)
 )
 
