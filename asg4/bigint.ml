@@ -94,14 +94,14 @@ let rec sub' list1 list2 carry = match (list1, list2, carry) with
 		else (car1 - carry - car2) :: sub' cdr1 cdr2 0
 
 (* Absolute multiply function *)
-let rec mul' list1 list2 vlist zeros =
+let rec mul' list1 list2 vlist =
 	let rec submul mlist value carry =
 		if mlist = [] then if carry = 0 then [] else [carry]
 		else let result = ((car mlist) * value + carry)
 		in result mod radix :: submul (cdr mlist) value (result / radix)
 	in if list2 = [] then vlist
-	else mul' list1 (cdr list2) 
-		(add' vlist (zeros @ (submul list1 (car list2) 0)) 0) (0 :: zeros)
+	else mul' (0 :: list1) (cdr list2) 
+		(add' vlist (submul list1 (car list2) 0) 0)
 
 (* Absolute divide function *)
 let rec div' nlist dlist len =
@@ -122,7 +122,7 @@ let rec pow' mlist rlist vlist times =
 	| car1::cdr1, rlist, vlist, 0  ->
 		pow' cdr1 rlist (pow' [] [1] vlist radix) car1
 	| mlist, rlist, vlist, times   ->
-		pow' mlist (mul' rlist vlist [] []) vlist (times - 1)
+		pow' mlist (mul' rlist vlist []) vlist (times - 1)
 
 (* Add function *)
 let add (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
@@ -145,8 +145,8 @@ let sub (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
 (* Multiply function *)
 let mul (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
 	if neg1 = neg2
-	then Bigint (Pos, mul' value1 value2 [] [])
-	else Bigint (Neg, mul' value1 value2 [] [])
+	then Bigint (Pos, mul' value1 value2 [])
+	else Bigint (Neg, mul' value1 value2 [])
 
 (* Divide function *)
 let div (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
