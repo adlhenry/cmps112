@@ -1,8 +1,6 @@
 CMPS 112 Comparative Programming Languages
 =======
 
-Programs are written in perl, smalltalk, scheme, and ocaml.
-
 [**make.pl**](/asg1) - A perl implementation of gnu make.
 
 [**hzip.st**](/asg2) - A file compression utility written in Smalltalk.
